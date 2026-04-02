@@ -1,6 +1,6 @@
 # HF Daily Papers
 
-每日自动抓取 [Hugging Face Daily Papers](https://huggingface.co/papers) 的 AI 论文，并使用 LLM 生成中文概要和深度分析。
+自动抓取 [Hugging Face Daily Papers](https://huggingface.co/papers) 的 AI 论文，并使用 LLM 生成中文概要和深度分析。
 
 ## 功能
 
