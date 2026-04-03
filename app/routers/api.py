@@ -5,10 +5,10 @@ from fastapi import APIRouter, HTTPException
 from app.database import (
     get_papers_by_date, get_available_dates, get_paper_detail,
     is_date_fetched, insert_papers, update_llm_summary,
+    update_brief_summary, get_paper_by_id,
 )
 from app.fetcher import fetch_daily_papers
 from app.summarizer import generate_brief, generate_detail, generate_briefs_batch
-from app.database import update_brief_summary
 from app.models import PaperResponse, SetupRequest
 from app.config import Settings, save_config, load_config, CONFIG_PATH
 
@@ -59,16 +59,9 @@ async def api_fetch(date: str | None = None):
 @router.post("/regenerate_brief/{paper_id}")
 async def api_regenerate_brief(paper_id: int):
     """重新生成首页极简概要"""
-    import aiosqlite
-    from app.database import DB_PATH
-
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT * FROM papers WHERE id = ?", (paper_id,))
-        row = await cursor.fetchone()
-        if not row:
-            raise HTTPException(404, "Paper not found")
-        paper = dict(row)
+    paper = await get_paper_by_id(paper_id)
+    if not paper:
+        raise HTTPException(404, "Paper not found")
 
     try:
         summary = await generate_brief(paper["title"], paper.get("abstract", ""))
@@ -82,16 +75,9 @@ async def api_regenerate_brief(paper_id: int):
 @router.post("/resummarize/{paper_id}")
 async def api_resummarize(paper_id: int):
     """重新生成完整分析"""
-    import aiosqlite
-    from app.database import DB_PATH
-
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT * FROM papers WHERE id = ?", (paper_id,))
-        row = await cursor.fetchone()
-        if not row:
-            raise HTTPException(404, "Paper not found")
-        paper = dict(row)
+    paper = await get_paper_by_id(paper_id)
+    if not paper:
+        raise HTTPException(404, "Paper not found")
 
     try:
         summary = await generate_detail(
@@ -107,16 +93,9 @@ async def api_resummarize(paper_id: int):
 @router.post("/generate_detail/{paper_id}")
 async def api_generate_detail(paper_id: int):
     """详情页触发：生成完整分析"""
-    import aiosqlite
-    from app.database import DB_PATH
-
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT * FROM papers WHERE id = ?", (paper_id,))
-        row = await cursor.fetchone()
-        if not row:
-            raise HTTPException(404, "Paper not found")
-        paper = dict(row)
+    paper = await get_paper_by_id(paper_id)
+    if not paper:
+        raise HTTPException(404, "Paper not found")
 
     # 已有完整分析则直接返回
     if paper.get("llm_summary_status") == "completed" and paper.get("llm_summary"):

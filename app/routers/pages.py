@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from fastapi import APIRouter, Request
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.database import get_papers_by_date, get_available_dates, get_paper_detail
 from app.config import CONFIG_PATH
@@ -54,5 +55,8 @@ def _today() -> str:
 
 def _parse_date(d: str):
     from datetime import date as dt_date
-    parts = d.split("-")
-    return dt_date(int(parts[0]), int(parts[1]), int(parts[2]))
+    try:
+        parts = d.split("-")
+        return dt_date(int(parts[0]), int(parts[1]), int(parts[2]))
+    except (ValueError, IndexError):
+        return dt_date.today()

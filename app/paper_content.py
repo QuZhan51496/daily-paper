@@ -75,11 +75,8 @@ async def _fetch_pdf(arxiv_id: str) -> str | None:
 
 def _extract_pdf_text(pdf_bytes: bytes) -> str | None:
     try:
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        pages = []
-        for page in doc:
-            pages.append(page.get_text())
-        doc.close()
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            pages = [page.get_text() for page in doc]
         text = "\n".join(pages)
         return text if text.strip() else None
     except Exception as e:

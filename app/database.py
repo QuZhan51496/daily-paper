@@ -174,6 +174,14 @@ async def get_pending_papers(date: str | None = None) -> list[dict]:
         return [_row_to_dict(r) for r in rows]
 
 
+async def get_paper_by_id(paper_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT * FROM papers WHERE id = ?", (paper_id,))
+        row = await cursor.fetchone()
+        return _row_to_dict(row) if row else None
+
+
 def _row_to_dict(row) -> dict:
     d = dict(row)
     for key in ("authors", "keywords"):
