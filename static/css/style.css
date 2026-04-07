@@ -63,6 +63,13 @@ header nav {
     padding: 0.25rem 0.5rem;
 }
 
+.nav-active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+.nav-active:hover { background: var(--primary-hover); color: white; }
+
 .nav-right {
     position: absolute;
     right: 0;

@@ -276,7 +276,7 @@ async def api_list_profiles():
 @router.post("/profiles")
 async def api_create_profile(req: KeywordProfileCreate):
     try:
-        pid = await create_keyword_profile(req.name, req.keywords, req.categories)
+        pid = await create_keyword_profile(req.name, req.keywords, req.categories, req.auto_analyze)
         return {"status": "ok", "id": pid}
     except Exception as e:
         raise HTTPException(400, str(e))
@@ -287,7 +287,7 @@ async def api_update_profile(profile_id: int, req: KeywordProfileCreate):
     profile = await get_keyword_profile(profile_id)
     if not profile:
         raise HTTPException(404, "Profile not found")
-    await update_keyword_profile(profile_id, req.name, req.keywords, req.categories)
+    await update_keyword_profile(profile_id, req.name, req.keywords, req.categories, req.auto_analyze)
     return {"status": "ok"}
 
 

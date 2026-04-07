@@ -41,6 +41,7 @@ async def index(request: Request, date: str | None = None, profile_id: int | Non
         "total_count": total_count,
         "profiles": profiles,
         "current_profile_id": profile_id,
+        "active_nav": "hf",
     })
     resp.headers["Cache-Control"] = "no-store"
     return resp
@@ -91,6 +92,7 @@ async def arxiv_index(request: Request, date: str | None = None, profile_id: int
         "categories_str": categories_str,
         "profiles": profiles,
         "current_profile_id": profile_id,
+        "active_nav": "arxiv",
     })
     resp.headers["Cache-Control"] = "no-store"
     return resp

@@ -79,6 +79,7 @@ async def init_db():
                 name TEXT NOT NULL UNIQUE,
                 keywords TEXT NOT NULL,
                 categories TEXT DEFAULT '',
+                auto_analyze INTEGER DEFAULT 0,
                 created_at TEXT,
                 updated_at TEXT
             );
@@ -89,6 +90,7 @@ async def init_db():
             ("papers", "brief_summary", None),
             ("papers", "brief_summary_status", "'pending'"),
             ("keyword_profiles", "categories", "''"),
+            ("keyword_profiles", "auto_analyze", "0"),
         ]:
             try:
                 ddl = f"ALTER TABLE {table} ADD COLUMN {col} TEXT"
@@ -347,23 +349,23 @@ async def get_keyword_profile(profile_id: int) -> dict | None:
         return dict(row) if row else None
 
 
-async def create_keyword_profile(name: str, keywords: str, categories: str = "") -> int:
+async def create_keyword_profile(name: str, keywords: str, categories: str = "", auto_analyze: bool = False) -> int:
     now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            "INSERT INTO keyword_profiles (name, keywords, categories, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-            (name, keywords, categories, now, now),
+            "INSERT INTO keyword_profiles (name, keywords, categories, auto_analyze, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (name, keywords, categories, 1 if auto_analyze else 0, now, now),
         )
         await db.commit()
         return cursor.lastrowid
 
 
-async def update_keyword_profile(profile_id: int, name: str, keywords: str, categories: str = ""):
+async def update_keyword_profile(profile_id: int, name: str, keywords: str, categories: str = "", auto_analyze: bool = False):
     now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "UPDATE keyword_profiles SET name = ?, keywords = ?, categories = ?, updated_at = ? WHERE id = ?",
-            (name, keywords, categories, now, profile_id),
+            "UPDATE keyword_profiles SET name = ?, keywords = ?, categories = ?, auto_analyze = ?, updated_at = ? WHERE id = ?",
+            (name, keywords, categories, 1 if auto_analyze else 0, now, profile_id),
         )
         await db.commit()
 

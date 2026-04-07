@@ -9,6 +9,7 @@ from app.database import (
     get_hf_papers_need_detail, get_arxiv_papers_need_detail,
     update_llm_summary, update_arxiv_llm_summary,
 )
+from app.keyword_matcher import filter_papers_by_keywords
 from app.fetcher import fetch_daily_papers
 from app.arxiv_fetcher import fetch_arxiv_papers
 from app.summarizer import (
@@ -87,28 +88,47 @@ async def _auto_fetch_loop():
             if need_arxiv_brief:
                 await generate_arxiv_briefs_batch(need_arxiv_brief)
 
-            # 3. 预生成详细分析
-            for paper in await get_hf_papers_need_detail(today):
-                try:
-                    summary = await generate_detail(
-                        paper["title"], paper.get("abstract", ""), arxiv_id=paper.get("arxiv_id")
-                    )
-                    await update_llm_summary(paper["id"], summary, "completed")
-                    logger.info(f"Auto-fetch: HF detail done: {paper['title'][:50]}...")
-                except Exception as e:
-                    logger.error(f"Auto-fetch: HF detail failed {paper['id']}: {e}")
-                    await update_llm_summary(paper["id"], str(e), "failed")
+            # 3. 预生成详细分析（仅 auto_analyze 开启的 profile 匹配到的论文）
+            analyze_profiles = [p for p in profiles if p.get("auto_analyze")]
+            if analyze_profiles:
+                # 收集所有需要分析的论文 id（去重）
+                hf_need = await get_hf_papers_need_detail(today)
+                arxiv_need = await get_arxiv_papers_need_detail(today)
 
-            for paper in await get_arxiv_papers_need_detail(today):
-                try:
-                    summary = await generate_detail(
-                        paper["title"], paper.get("abstract", ""), arxiv_id=paper.get("arxiv_id")
-                    )
-                    await update_arxiv_llm_summary(paper["id"], summary, "completed")
-                    logger.info(f"Auto-fetch: ArXiv detail done: {paper['title'][:50]}...")
-                except Exception as e:
-                    logger.error(f"Auto-fetch: ArXiv detail failed {paper['id']}: {e}")
-                    await update_arxiv_llm_summary(paper["id"], str(e), "failed")
+                hf_analyze_ids = set()
+                arxiv_analyze_ids = set()
+                for prof in analyze_profiles:
+                    kw = prof.get("keywords", "")
+                    for p in filter_papers_by_keywords(hf_need, kw):
+                        hf_analyze_ids.add(p["id"])
+                    for p in filter_papers_by_keywords(arxiv_need, kw):
+                        arxiv_analyze_ids.add(p["id"])
+
+                for paper in hf_need:
+                    if paper["id"] not in hf_analyze_ids:
+                        continue
+                    try:
+                        summary = await generate_detail(
+                            paper["title"], paper.get("abstract", ""), arxiv_id=paper.get("arxiv_id")
+                        )
+                        await update_llm_summary(paper["id"], summary, "completed")
+                        logger.info(f"Auto-fetch: HF detail done: {paper['title'][:50]}...")
+                    except Exception as e:
+                        logger.error(f"Auto-fetch: HF detail failed {paper['id']}: {e}")
+                        await update_llm_summary(paper["id"], str(e), "failed")
+
+                for paper in arxiv_need:
+                    if paper["id"] not in arxiv_analyze_ids:
+                        continue
+                    try:
+                        summary = await generate_detail(
+                            paper["title"], paper.get("abstract", ""), arxiv_id=paper.get("arxiv_id")
+                        )
+                        await update_arxiv_llm_summary(paper["id"], summary, "completed")
+                        logger.info(f"Auto-fetch: ArXiv detail done: {paper['title'][:50]}...")
+                    except Exception as e:
+                        logger.error(f"Auto-fetch: ArXiv detail failed {paper['id']}: {e}")
+                        await update_arxiv_llm_summary(paper["id"], str(e), "failed")
 
             logger.info(f"Auto-fetch: completed, next in {interval} min")
             await asyncio.sleep(interval * 60)

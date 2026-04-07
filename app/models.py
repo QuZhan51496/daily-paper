@@ -56,6 +56,7 @@ class KeywordProfileCreate(BaseModel):
     name: str
     keywords: str
     categories: str = ""
+    auto_analyze: bool = False
 
 
 class SetupRequest(BaseModel):
