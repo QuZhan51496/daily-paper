@@ -11,6 +11,7 @@ class Settings(BaseModel):
     llm_model: str = "gpt-4o-mini"
     server_host: str = "0.0.0.0"
     server_port: int = 8080
+    auto_fetch_interval: int = 0
 
 
 _settings: Settings | None = None

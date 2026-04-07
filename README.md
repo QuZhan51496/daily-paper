@@ -5,6 +5,7 @@
 ## 功能
 
 - 自动抓取 Hugging Face 和 arXiv 论文，翻页时自动同步新增论文
+- 定时抓取：可配置后台定时自动抓取所有 Profile 的论文，并预生成概要和详细分析
 - 关键词 Profile 过滤：多用户各自定义关键词和 arXiv 分类，精准筛选论文
 - LLM 生成一句话概要（首页）和深度分析（详情页）
 - 深度分析自动获取论文全文（arXiv HTML / PDF），提升分析质量
@@ -35,6 +36,7 @@ python run.py
 - **API Key** — 接口密钥
 - **模型名称** — 使用的模型（如 `gpt-4o-mini`）
 - **关键词 Profile** — 定义名称、关键词和 arXiv 分类，用于过滤论文
+- **定时抓取间隔** — 设置后台自动抓取间隔（分钟），0 表示关闭
 
 ## 技术栈
 
@@ -58,6 +60,7 @@ daily-paper/
 │   ├── database.py         # 数据库操作
 │   ├── fetcher.py          # HF API 抓取
 │   ├── arxiv_fetcher.py    # arXiv API 抓取
+│   ├── auto_fetch.py       # 定时抓取任务
 │   ├── keyword_matcher.py  # 关键词匹配过滤
 │   ├── summarizer.py       # LLM 概要/分析生成
 │   ├── paper_content.py    # arXiv 全文获取

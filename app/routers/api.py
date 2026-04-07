@@ -129,9 +129,10 @@ async def api_get_config():
             "has_key": bool(config.llm_api_key),
             "llm_base_url": config.llm_base_url,
             "llm_model": config.llm_model,
+            "auto_fetch_interval": config.auto_fetch_interval,
         }
     except Exception:
-        return {"has_key": False, "llm_base_url": "https://api.openai.com/v1", "llm_model": "gpt-4o-mini"}
+        return {"has_key": False, "llm_base_url": "https://api.openai.com/v1", "llm_model": "gpt-4o-mini", "auto_fetch_interval": 0}
 
 
 @router.post("/setup")
@@ -150,8 +151,15 @@ async def api_setup(req: SetupRequest):
         llm_api_key=api_key,
         llm_base_url=req.llm_base_url,
         llm_model=req.llm_model,
+        auto_fetch_interval=req.auto_fetch_interval,
     )
     save_config(settings)
+    # 重启定时任务
+    from app.auto_fetch import start_auto_fetch, stop_auto_fetch
+    if settings.auto_fetch_interval > 0:
+        start_auto_fetch()
+    else:
+        stop_auto_fetch()
     return {"status": "ok", "message": "配置已保存"}
 
 

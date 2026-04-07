@@ -53,6 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 llm_api_key: document.getElementById("api_key").value,
                 llm_base_url: document.getElementById("base_url").value,
                 llm_model: document.getElementById("model").value,
+                auto_fetch_interval: parseInt(document.getElementById("auto_fetch_interval").value) || 0,
             };
             msg.textContent = "保存中...";
             msg.className = "msg";

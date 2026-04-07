@@ -374,6 +374,28 @@ async def delete_keyword_profile(profile_id: int):
         await db.commit()
 
 
+# ── Auto-fetch queries ────────────────────────────────────────
+
+async def get_hf_papers_need_detail(date: str) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM papers WHERE date = ? AND brief_summary_status = 'completed' AND llm_summary_status != 'completed'",
+            (date,),
+        )
+        return [_row_to_dict(r) for r in await cursor.fetchall()]
+
+
+async def get_arxiv_papers_need_detail(date: str) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM arxiv_papers WHERE date = ? AND brief_summary_status = 'completed' AND llm_summary_status != 'completed'",
+            (date,),
+        )
+        return [_arxiv_row_to_dict(r) for r in await cursor.fetchall()]
+
+
 # ── Helpers ───────────────────────────────────────────────────
 
 def _row_to_dict(row) -> dict:

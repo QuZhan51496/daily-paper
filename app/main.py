@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app.database import init_db
+from app.auto_fetch import start_auto_fetch, stop_auto_fetch
+from app.config import CONFIG_PATH
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,7 +15,10 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    if CONFIG_PATH.exists():
+        start_auto_fetch()
     yield
+    stop_auto_fetch()
 
 
 def create_app() -> FastAPI:
