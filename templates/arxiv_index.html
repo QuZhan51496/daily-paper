@@ -1,12 +1,13 @@
 {% extends "base.html" %}
-{% block title %}HF Papers - {{ current_date }}{% endblock %}
+{% block title %}ArXiv Papers - {{ current_category }} - {{ current_date }}{% endblock %}
 {% block header_right %}
 <div class="header-date-nav">
-    <a href="/?date={{ prev_date }}{% if current_profile_id %}&profile_id={{ current_profile_id }}{% endif %}" class="btn btn-sm">&larr;</a>
+    <a href="/arxiv?date={{ prev_date }}&category={{ current_category }}{% if current_profile_id %}&profile_id={{ current_profile_id }}{% endif %}" class="btn btn-sm">&larr;</a>
     <input type="date" id="date-picker" value="{{ current_date }}">
-    <a href="/?date={{ next_date }}{% if current_profile_id %}&profile_id={{ current_profile_id }}{% endif %}" class="btn btn-sm">&rarr;</a>
+    <a href="/arxiv?date={{ next_date }}&category={{ current_category }}{% if current_profile_id %}&profile_id={{ current_profile_id }}{% endif %}" class="btn btn-sm">&rarr;</a>
+    <input type="text" id="category-input" class="filter-select" value="{{ current_category }}" style="width:80px" title="ArXiv category">
     <select id="profile-select" class="filter-select">
-        <option value="">全部 ({{ paper_count }} 篇)</option>
+        <option value="">全部 ({{ paper_count }}/{{ total_count }})</option>
         {% for prof in profiles %}
         <option value="{{ prof.id }}" {% if current_profile_id == prof.id %}selected{% endif %}>{{ prof.name }}</option>
         {% endfor %}
@@ -15,22 +16,21 @@
 {% endblock %}
 {% block content %}
 
-{% if paper_count == 0 %}
+{% if paper_count == 0 and total_count == 0 %}
 <div class="empty-state">
-    <p id="fetch-msg" class="msg">正在自动抓取该日论文...</p>
+    <p id="fetch-msg" class="msg">正在自动抓取 {{ current_category }} 论文...</p>
+</div>
+{% elif paper_count == 0 and total_count > 0 %}
+<div class="empty-state">
+    <p>当前 Profile 下无匹配论文（共 {{ total_count }} 篇）</p>
 </div>
 {% else %}
 <div class="paper-grid">
     {% for p in papers %}
     <article class="paper-card">
-        {% if p.thumbnail_url %}
-        <div class="paper-thumb">
-            <img src="{{ p.thumbnail_url }}" alt="{{ p.title }}" loading="lazy">
-        </div>
-        {% endif %}
         <div class="paper-body">
             <h2 class="paper-title">
-                <a href="/paper/{{ p.arxiv_id }}?date={{ current_date }}">{{ p.title }}</a>
+                <a href="/arxiv/paper/{{ p.arxiv_id }}?date={{ current_date }}">{{ p.title }}</a>
             </h2>
             <div class="paper-authors">
                 {% for a in p.authors[:3] %}
@@ -40,14 +40,14 @@
                 <span class="author-more">+{{ p.authors|length - 3 }} more</span>
                 {% endif %}
             </div>
-            {% if p.keywords %}
+            {% if p.categories %}
             <div class="paper-keywords">
-                {% for k in p.keywords[:5] %}
-                <span class="keyword">{{ k }}</span>
+                {% for c in p.categories[:5] %}
+                <span class="keyword">{{ c }}</span>
                 {% endfor %}
             </div>
             {% endif %}
-            <div class="paper-summary" id="brief-{{ p.id }}">
+            <div class="paper-summary" id="arxiv-brief-{{ p.id }}">
                 {% if p.brief_summary_status == 'completed' and p.brief_summary %}
                     <p>{{ p.brief_summary }}</p>
                 {% elif p.brief_summary_status == 'pending' %}
@@ -57,18 +57,9 @@
                 {% endif %}
             </div>
             <div class="paper-meta">
-                <span class="meta-item" title="Upvotes">👍 {{ p.upvotes }}</span>
-                <span class="meta-item" title="Comments">💬 {{ p.num_comments }}</span>
-                {% if p.github_repo %}
-                <a href="{{ p.github_repo }}" target="_blank" class="meta-item" title="GitHub">
-                    ⭐ {{ p.github_stars or 0 }}
-                </a>
-                {% endif %}
                 <a href="https://arxiv.org/abs/{{ p.arxiv_id }}" target="_blank" class="meta-link">arXiv</a>
-                {% if p.project_page %}
-                <a href="{{ p.project_page }}" target="_blank" class="meta-link">Project</a>
-                {% endif %}
-                <button class="btn btn-sm btn-regen" onclick="regenerateBrief({{ p.id }}, this)" title="重新生成概要">🔄</button>
+                <a href="https://arxiv.org/pdf/{{ p.arxiv_id }}" target="_blank" class="meta-link">PDF</a>
+                <button class="btn btn-sm btn-regen" onclick="regenerateArxivBrief({{ p.id }}, this)" title="重新生成概要">🔄</button>
             </div>
         </div>
     </article>
@@ -78,13 +69,13 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    syncPapers('{{ current_date }}');
-    pollBriefs('{{ current_date }}', true);
+    syncArxivPapers('{{ current_date }}', '{{ current_category }}');
+    pollArxivBriefs('{{ current_date }}', '{{ current_category }}', '{{ current_profile_id or "" }}');
 
     var profileSelect = document.getElementById("profile-select");
     if (profileSelect) {
         profileSelect.addEventListener("change", function() {
-            var url = "/?date={{ current_date }}";
+            var url = "/arxiv?date={{ current_date }}&category={{ current_category }}";
             if (this.value) url += "&profile_id=" + this.value;
             window.location.href = url;
         });
@@ -93,7 +84,17 @@ document.addEventListener("DOMContentLoaded", function() {
     var datePicker = document.getElementById("date-picker");
     if (datePicker) {
         datePicker.addEventListener("change", function(e) {
-            var url = "/?date=" + e.target.value;
+            var url = "/arxiv?date=" + e.target.value + "&category={{ current_category }}";
+            var pid = document.getElementById("profile-select");
+            if (pid && pid.value) url += "&profile_id=" + pid.value;
+            window.location.href = url;
+        });
+    }
+
+    var catInput = document.getElementById("category-input");
+    if (catInput) {
+        catInput.addEventListener("change", function() {
+            var url = "/arxiv?date={{ current_date }}&category=" + encodeURIComponent(this.value);
             var pid = document.getElementById("profile-select");
             if (pid && pid.value) url += "&profile_id=" + pid.value;
             window.location.href = url;

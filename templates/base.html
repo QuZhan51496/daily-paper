@@ -10,8 +10,12 @@
 <body>
     <header>
         <nav>
-            <a href="/" class="logo">📄 HF Daily Papers</a>
-            <span class="subtitle">每日 AI 论文精选摘要</span>
+            <div class="nav-left">
+                <a href="/" class="logo">📄 Paper Hub</a>
+                <a href="/" class="btn btn-sm nav-link">HF Papers</a>
+                <a href="/arxiv" class="btn btn-sm nav-link">ArXiv Papers</a>
+                <a href="/profiles" class="btn btn-sm nav-link">Profiles</a>
+            </div>
             {% block header_right %}{% endblock %}
             <a href="/setup" class="btn btn-sm header-settings" title="设置">⚙ 设置</a>
         </nav>

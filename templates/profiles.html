@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}关键词 Profiles{% endblock %}
+{% block content %}
+<div class="setup-container" style="max-width:640px">
+    <h1>关键词 Profiles</h1>
+    <p>创建关键词 Profile，用于在 HF Papers 和 ArXiv Papers 页面过滤论文。</p>
+
+    <form id="profile-form">
+        <div class="form-group">
+            <label for="profile-name">Profile 名称</label>
+            <input type="text" id="profile-name" placeholder="如：3D Vision" required>
+        </div>
+        <div class="form-group">
+            <label for="profile-keywords">关键词（逗号分隔）</label>
+            <input type="text" id="profile-keywords" placeholder="如：NeRF, 3D Gaussian, point cloud, depth estimation" required>
+        </div>
+        <button type="submit" class="btn btn-primary" id="profile-submit-btn">创建</button>
+        <button type="button" class="btn" id="profile-cancel-btn" style="display:none" onclick="cancelEdit()">取消</button>
+        <p id="profile-msg" class="msg"></p>
+    </form>
+
+    <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
+
+    <div id="profile-list">
+        {% for p in profiles %}
+        <div class="profile-item" id="profile-{{ p.id }}">
+            <div class="profile-info">
+                <strong>{{ p.name }}</strong>
+                <span class="profile-keywords">{{ p.keywords }}</span>
+            </div>
+            <div class="profile-actions">
+                <button class="btn btn-sm" onclick="editProfile({{ p.id }}, '{{ p.name }}', '{{ p.keywords }}')">编辑</button>
+                <button class="btn btn-sm" style="color:var(--danger)" onclick="deleteProfile({{ p.id }})">删除</button>
+            </div>
+        </div>
+        {% endfor %}
+        {% if not profiles %}
+        <p class="msg">暂无 Profile，请创建。</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+let editingId = null;
+
+document.getElementById("profile-form").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const name = document.getElementById("profile-name").value.trim();
+    const keywords = document.getElementById("profile-keywords").value.trim();
+    const msg = document.getElementById("profile-msg");
+
+    if (!name || !keywords) return;
+
+    try {
+        let resp;
+        if (editingId) {
+            resp = await fetch(`/api/profiles/${editingId}`, {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({name, keywords})
+            });
+        } else {
+            resp = await fetch("/api/profiles", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({name, keywords})
+            });
+        }
+        if (resp.ok) {
+            msg.textContent = editingId ? "已更新" : "已创建";
+            msg.className = "msg success";
+            setTimeout(() => window.location.reload(), 500);
+        } else {
+            const err = await resp.json();
+            msg.textContent = "失败: " + (err.detail || "未知错误");
+            msg.className = "msg error";
+        }
+    } catch (err) {
+        msg.textContent = "网络错误";
+        msg.className = "msg error";
+    }
+});
+
+function editProfile(id, name, keywords) {
+    editingId = id;
+    document.getElementById("profile-name").value = name;
+    document.getElementById("profile-keywords").value = keywords;
+    document.getElementById("profile-submit-btn").textContent = "保存";
+    document.getElementById("profile-cancel-btn").style.display = "inline-block";
+}
+
+function cancelEdit() {
+    editingId = null;
+    document.getElementById("profile-name").value = "";
+    document.getElementById("profile-keywords").value = "";
+    document.getElementById("profile-submit-btn").textContent = "创建";
+    document.getElementById("profile-cancel-btn").style.display = "none";
+}
+
+async function deleteProfile(id) {
+    if (!confirm("确定删除？")) return;
+    await fetch(`/api/profiles/${id}`, {method: "DELETE"});
+    window.location.reload();
+}
+</script>
+{% endblock %}

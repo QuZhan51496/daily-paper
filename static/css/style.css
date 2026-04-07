@@ -52,10 +52,42 @@ header nav {
     font-size: 0.9rem;
 }
 
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.nav-link {
+    font-size: 0.78rem;
+    padding: 0.25rem 0.5rem;
+}
+
 .header-settings {
     position: absolute;
     right: 0;
 }
+
+.filter-select {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    background: var(--card-bg);
+}
+
+.profile-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.profile-info { flex: 1; }
+.profile-info strong { display: block; margin-bottom: 0.2rem; }
+.profile-keywords { font-size: 0.85rem; color: var(--text-light); }
+.profile-actions { display: flex; gap: 0.4rem; }
 
 main {
     max-width: 1200px;

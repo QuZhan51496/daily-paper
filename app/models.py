@@ -31,6 +31,32 @@ class PaperResponse(BaseModel):
         )
 
 
+class ArxivPaperResponse(BaseModel):
+    id: int
+    arxiv_id: str
+    date: str
+    title: str
+    abstract: str | None = None
+    authors: list[str] = []
+    categories: list[str] = []
+    primary_category: str | None = None
+    published_at: str | None = None
+    brief_summary: str | None = None
+    brief_summary_status: str = "pending"
+    llm_summary: str | None = None
+    llm_summary_status: str = "pending"
+    arxiv_url: str = ""
+
+    @classmethod
+    def from_db(cls, row: dict) -> "ArxivPaperResponse":
+        return cls(**row, arxiv_url=f"https://arxiv.org/abs/{row['arxiv_id']}")
+
+
+class KeywordProfileCreate(BaseModel):
+    name: str
+    keywords: str
+
+
 class SetupRequest(BaseModel):
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"

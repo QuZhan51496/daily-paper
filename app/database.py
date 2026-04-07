@@ -43,6 +43,44 @@ async def init_db():
                 status TEXT DEFAULT 'success',
                 error_message TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS arxiv_papers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                arxiv_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                title TEXT NOT NULL,
+                abstract TEXT,
+                authors TEXT,
+                categories TEXT,
+                primary_category TEXT,
+                published_at TEXT,
+                updated_at TEXT,
+                brief_summary TEXT,
+                brief_summary_status TEXT DEFAULT 'pending',
+                llm_summary TEXT,
+                llm_summary_status TEXT DEFAULT 'pending',
+                created_at TEXT,
+                UNIQUE(arxiv_id, date)
+            );
+
+            CREATE TABLE IF NOT EXISTS arxiv_fetch_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category TEXT NOT NULL,
+                date TEXT NOT NULL,
+                fetched_at TEXT NOT NULL,
+                paper_count INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'success',
+                error_message TEXT,
+                UNIQUE(category, date)
+            );
+
+            CREATE TABLE IF NOT EXISTS keyword_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                keywords TEXT NOT NULL,
+                created_at TEXT,
+                updated_at TEXT
+            );
         """)
 
         # migrate: add brief_summary columns to existing databases
@@ -182,9 +220,173 @@ async def get_paper_by_id(paper_id: int) -> dict | None:
         return _row_to_dict(row) if row else None
 
 
+# ── ArXiv papers ──────────────────────────────────────────────
+
+async def insert_arxiv_papers(date: str, category: str, papers: list[dict]) -> int:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        count = 0
+        for p in papers:
+            try:
+                changes_before = db.total_changes
+                await db.execute(
+                    """INSERT OR IGNORE INTO arxiv_papers
+                    (arxiv_id, date, title, abstract, authors, categories,
+                     primary_category, published_at, updated_at, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        p["arxiv_id"], date, p["title"], p.get("abstract", ""),
+                        json.dumps(p.get("authors", []), ensure_ascii=False),
+                        json.dumps(p.get("categories", []), ensure_ascii=False),
+                        p.get("primary_category", ""),
+                        p.get("published_at"), p.get("updated_at"), now,
+                    ),
+                )
+                if db.total_changes > changes_before:
+                    count += 1
+            except Exception:
+                pass
+        await db.commit()
+        await db.execute(
+            "INSERT OR REPLACE INTO arxiv_fetch_log (category, date, fetched_at, paper_count, status) VALUES (?, ?, ?, ?, ?)",
+            (category, date, now, count, "success"),
+        )
+        await db.commit()
+    return count
+
+
+async def get_arxiv_papers_by_date(date: str, category: str | None = None) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if category:
+            cursor = await db.execute(
+                "SELECT * FROM arxiv_papers WHERE date = ? AND primary_category = ? ORDER BY title",
+                (date, category),
+            )
+        else:
+            cursor = await db.execute(
+                "SELECT * FROM arxiv_papers WHERE date = ? ORDER BY title", (date,)
+            )
+        rows = await cursor.fetchall()
+        return [_arxiv_row_to_dict(r) for r in rows]
+
+
+async def get_arxiv_paper_detail(arxiv_id: str, date: str | None = None) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if date:
+            cursor = await db.execute(
+                "SELECT * FROM arxiv_papers WHERE arxiv_id = ? AND date = ?", (arxiv_id, date)
+            )
+        else:
+            cursor = await db.execute(
+                "SELECT * FROM arxiv_papers WHERE arxiv_id = ? ORDER BY date DESC LIMIT 1", (arxiv_id,)
+            )
+        row = await cursor.fetchone()
+        return _arxiv_row_to_dict(row) if row else None
+
+
+async def get_arxiv_paper_by_id(paper_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT * FROM arxiv_papers WHERE id = ?", (paper_id,))
+        row = await cursor.fetchone()
+        return _arxiv_row_to_dict(row) if row else None
+
+
+async def get_arxiv_available_dates(category: str | None = None) -> list[str]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        if category:
+            cursor = await db.execute(
+                "SELECT DISTINCT date FROM arxiv_papers WHERE primary_category = ? ORDER BY date DESC",
+                (category,),
+            )
+        else:
+            cursor = await db.execute("SELECT DISTINCT date FROM arxiv_papers ORDER BY date DESC")
+        rows = await cursor.fetchall()
+        return [r[0] for r in rows]
+
+
+async def update_arxiv_brief_summary(paper_id: int, summary: str, status: str = "completed"):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE arxiv_papers SET brief_summary = ?, brief_summary_status = ? WHERE id = ?",
+            (summary, status, paper_id),
+        )
+        await db.commit()
+
+
+async def update_arxiv_llm_summary(paper_id: int, summary: str, status: str = "completed"):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE arxiv_papers SET llm_summary = ?, llm_summary_status = ? WHERE id = ?",
+            (summary, status, paper_id),
+        )
+        await db.commit()
+
+
+# ── Keyword profiles ──────────────────────────────────────────
+
+async def get_keyword_profiles() -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT * FROM keyword_profiles ORDER BY name")
+        return [dict(r) for r in await cursor.fetchall()]
+
+
+async def get_keyword_profile(profile_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT * FROM keyword_profiles WHERE id = ?", (profile_id,))
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+
+async def create_keyword_profile(name: str, keywords: str) -> int:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "INSERT INTO keyword_profiles (name, keywords, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (name, keywords, now, now),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def update_keyword_profile(profile_id: int, name: str, keywords: str):
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE keyword_profiles SET name = ?, keywords = ?, updated_at = ? WHERE id = ?",
+            (name, keywords, now, profile_id),
+        )
+        await db.commit()
+
+
+async def delete_keyword_profile(profile_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM keyword_profiles WHERE id = ?", (profile_id,))
+        await db.commit()
+
+
+# ── Helpers ───────────────────────────────────────────────────
+
 def _row_to_dict(row) -> dict:
     d = dict(row)
     for key in ("authors", "keywords"):
+        if d.get(key):
+            try:
+                d[key] = json.loads(d[key])
+            except (json.JSONDecodeError, TypeError):
+                d[key] = []
+        else:
+            d[key] = []
+    return d
+
+
+def _arxiv_row_to_dict(row) -> dict:
+    d = dict(row)
+    for key in ("authors", "categories"):
         if d.get(key):
             try:
                 d[key] = json.loads(d[key])

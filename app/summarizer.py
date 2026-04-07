@@ -2,7 +2,7 @@ import asyncio
 import logging
 from openai import AsyncOpenAI
 from app.config import load_config
-from app.database import update_llm_summary, update_brief_summary
+from app.database import update_llm_summary, update_brief_summary, update_arxiv_brief_summary, update_arxiv_llm_summary
 
 logger = logging.getLogger(__name__)
 
@@ -80,5 +80,20 @@ async def generate_briefs_batch(papers: list[dict]):
         except Exception as e:
             logger.error(f"Brief failed for paper {paper['id']}: {e}")
             await update_brief_summary(paper["id"], str(e), "failed")
+
+    await asyncio.gather(*[_process(p) for p in papers])
+
+
+async def generate_arxiv_briefs_batch(papers: list[dict]):
+    """批量生成 arxiv 论文极简概要"""
+
+    async def _process(paper: dict):
+        try:
+            summary = await generate_brief(paper["title"], paper.get("abstract", ""))
+            await update_arxiv_brief_summary(paper["id"], summary, "completed")
+            logger.info(f"Arxiv brief done: {paper['title'][:50]}...")
+        except Exception as e:
+            logger.error(f"Arxiv brief failed for paper {paper['id']}: {e}")
+            await update_arxiv_brief_summary(paper["id"], str(e), "failed")
 
     await asyncio.gather(*[_process(p) for p in papers])

@@ -6,10 +6,16 @@ from app.database import (
     get_papers_by_date, get_available_dates, get_paper_detail,
     is_date_fetched, insert_papers, update_llm_summary,
     update_brief_summary, get_paper_by_id,
+    insert_arxiv_papers, get_arxiv_papers_by_date, get_arxiv_paper_by_id,
+    get_arxiv_available_dates, update_arxiv_llm_summary, update_arxiv_brief_summary,
+    get_keyword_profiles, get_keyword_profile, create_keyword_profile,
+    update_keyword_profile, delete_keyword_profile,
 )
 from app.fetcher import fetch_daily_papers
-from app.summarizer import generate_brief, generate_detail, generate_briefs_batch
-from app.models import PaperResponse, SetupRequest
+from app.arxiv_fetcher import fetch_arxiv_papers
+from app.summarizer import generate_brief, generate_detail, generate_briefs_batch, generate_arxiv_briefs_batch
+from app.keyword_matcher import filter_papers_by_keywords
+from app.models import PaperResponse, ArxivPaperResponse, KeywordProfileCreate, SetupRequest
 from app.config import Settings, save_config, load_config, CONFIG_PATH
 
 logger = logging.getLogger(__name__)
@@ -159,6 +165,120 @@ async def api_status():
         "today": today,
         "today_fetched": fetched,
     }
+
+
+# ── ArXiv paper endpoints ─────────────────────────────────────
+
+@router.get("/arxiv/papers")
+async def api_arxiv_papers(date: str | None = None, category: str = "cs.CV", profile_id: int | None = None):
+    if not date:
+        date = _today()
+    papers = await get_arxiv_papers_by_date(date, category)
+    if profile_id:
+        profile = await get_keyword_profile(profile_id)
+        if profile:
+            papers = filter_papers_by_keywords(papers, profile["keywords"])
+    return [ArxivPaperResponse.from_db(p) for p in papers]
+
+
+@router.get("/arxiv/dates")
+async def api_arxiv_dates(category: str | None = None):
+    return await get_arxiv_available_dates(category)
+
+
+@router.post("/arxiv/fetch")
+async def api_arxiv_fetch(date: str | None = None, category: str = "cs.CV"):
+    if not date:
+        date = _today()
+    try:
+        papers = await fetch_arxiv_papers(date, category)
+        count = 0
+        if papers:
+            count = await insert_arxiv_papers(date, category, papers)
+            if count > 0:
+                all_papers = await get_arxiv_papers_by_date(date, category)
+                need_brief = [p for p in all_papers if p.get("brief_summary_status") != "completed"]
+                if need_brief:
+                    asyncio.ensure_future(generate_arxiv_briefs_batch(need_brief))
+        return {"date": date, "category": category, "fetched": len(papers), "inserted": count, "status": "ok"}
+    except Exception as e:
+        logger.error(f"ArXiv fetch failed for {category} {date}: {e}")
+        raise HTTPException(500, str(e))
+
+
+@router.post("/arxiv/regenerate_brief/{paper_id}")
+async def api_arxiv_regenerate_brief(paper_id: int):
+    paper = await get_arxiv_paper_by_id(paper_id)
+    if not paper:
+        raise HTTPException(404, "Paper not found")
+    try:
+        summary = await generate_brief(paper["title"], paper.get("abstract", ""))
+        await update_arxiv_brief_summary(paper_id, summary, "completed")
+        return {"status": "ok", "summary": summary}
+    except Exception as e:
+        await update_arxiv_brief_summary(paper_id, str(e), "failed")
+        raise HTTPException(500, str(e))
+
+
+@router.post("/arxiv/generate_detail/{paper_id}")
+async def api_arxiv_generate_detail(paper_id: int):
+    paper = await get_arxiv_paper_by_id(paper_id)
+    if not paper:
+        raise HTTPException(404, "Paper not found")
+    if paper.get("llm_summary_status") == "completed" and paper.get("llm_summary"):
+        return {"status": "ok", "summary": paper["llm_summary"]}
+    try:
+        summary = await generate_detail(paper["title"], paper.get("abstract", ""), arxiv_id=paper.get("arxiv_id"))
+        await update_arxiv_llm_summary(paper_id, summary, "completed")
+        return {"status": "ok", "summary": summary}
+    except Exception as e:
+        await update_arxiv_llm_summary(paper_id, str(e), "failed")
+        raise HTTPException(500, str(e))
+
+
+@router.post("/arxiv/resummarize/{paper_id}")
+async def api_arxiv_resummarize(paper_id: int):
+    paper = await get_arxiv_paper_by_id(paper_id)
+    if not paper:
+        raise HTTPException(404, "Paper not found")
+    try:
+        summary = await generate_detail(paper["title"], paper.get("abstract", ""), arxiv_id=paper.get("arxiv_id"))
+        await update_arxiv_llm_summary(paper_id, summary, "completed")
+        return {"status": "ok", "summary": summary}
+    except Exception as e:
+        await update_arxiv_llm_summary(paper_id, str(e), "failed")
+        raise HTTPException(500, str(e))
+
+
+# ── Keyword profile endpoints ────────────────────────────────
+
+@router.get("/profiles")
+async def api_list_profiles():
+    return await get_keyword_profiles()
+
+
+@router.post("/profiles")
+async def api_create_profile(req: KeywordProfileCreate):
+    try:
+        pid = await create_keyword_profile(req.name, req.keywords)
+        return {"status": "ok", "id": pid}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@router.put("/profiles/{profile_id}")
+async def api_update_profile(profile_id: int, req: KeywordProfileCreate):
+    profile = await get_keyword_profile(profile_id)
+    if not profile:
+        raise HTTPException(404, "Profile not found")
+    await update_keyword_profile(profile_id, req.name, req.keywords)
+    return {"status": "ok"}
+
+
+@router.delete("/profiles/{profile_id}")
+async def api_delete_profile(profile_id: int):
+    await delete_keyword_profile(profile_id)
+    return {"status": "ok"}
 
 
 def _today() -> str:
