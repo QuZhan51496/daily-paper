@@ -137,7 +137,6 @@ async def api_get_config():
 
 @router.post("/setup")
 async def api_setup(req: SetupRequest):
-    logger.info(f"Setup request: base_url={req.llm_base_url}, model={req.llm_model}, interval={req.auto_fetch_interval}")
     # 如果未提供 api_key，保留现有的
     api_key = req.llm_api_key
     if not api_key and CONFIG_PATH.exists():
