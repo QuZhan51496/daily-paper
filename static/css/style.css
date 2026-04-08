@@ -72,6 +72,8 @@ header nav {
     align-items: center;
 }
 
+.nav-right .btn { line-height: 1.4; }
+
 .filter-select {
     padding: 0.3rem 0.5rem;
     border: 1px solid var(--border);
