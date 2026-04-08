@@ -236,7 +236,6 @@ async function regenAllBriefs() {
     btn.disabled = true;
     btn.textContent = "生成中...";
 
-    // 判断当前是 HF 还是 ArXiv
     var isArxiv = window.location.pathname.startsWith("/arxiv");
     var params = new URLSearchParams(window.location.search);
     var date = params.get("date") || "";
@@ -250,19 +249,38 @@ async function regenAllBriefs() {
         var resp = await fetch(url, { method: "POST" });
         if (resp.ok) {
             var data = await resp.json();
-            btn.textContent = `已提交 ${data.count} 篇`;
-            setTimeout(() => {
-                btn.textContent = "🔄 生成概要";
+            if (data.count > 0) {
+                btn.textContent = `生成中 (${data.count} 篇)...`;
+                // 把 failed 状态改为 pending，触发轮询
+                document.querySelectorAll(".summary-failed").forEach(function(el) {
+                    el.textContent = "概要生成中...";
+                    el.className = "summary-pending";
+                });
+                // 轮询等待生成完成
+                if (isArxiv) {
+                    pollArxivBriefs(date, profileId);
+                } else {
+                    pollBriefs(date, true);
+                }
+                // 定时检查是否还有 pending
+                var checkInterval = setInterval(function() {
+                    if (!document.querySelector(".summary-pending")) {
+                        clearInterval(checkInterval);
+                        btn.textContent = "⟳ 生成概要";
+                        btn.disabled = false;
+                    }
+                }, 1000);
+            } else {
+                btn.textContent = "⟳ 生成概要";
                 btn.disabled = false;
-                window.location.reload();
-            }, 1500);
+            }
         } else {
             btn.textContent = "生成失败";
-            btn.disabled = false;
+            setTimeout(function() { btn.textContent = "⟳ 生成概要"; btn.disabled = false; }, 2000);
         }
     } catch (e) {
         btn.textContent = "网络错误";
-        btn.disabled = false;
+        setTimeout(function() { btn.textContent = "⟳ 生成概要"; btn.disabled = false; }, 2000);
     }
 }
 

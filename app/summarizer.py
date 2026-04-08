@@ -29,14 +29,23 @@ def _get_client() -> AsyncOpenAI:
     return AsyncOpenAI(api_key=config.llm_api_key, base_url=config.llm_base_url)
 
 
-async def generate_brief(title: str, abstract: str) -> str:
+async def generate_brief(title: str, abstract: str, arxiv_id: str | None = None) -> str:
     config = load_config()
     client = _get_client()
+    user_msg = f"论文标题: {title}\n\n摘要: {abstract}"
+
+    if arxiv_id:
+        from app.paper_content import fetch_paper_content
+        content, source = await fetch_paper_content(arxiv_id)
+        if content:
+            user_msg += f"\n\n论文全文（来源: {source}）:\n{content}"
+            logger.info(f"Brief using {source} content for {arxiv_id}")
+
     response = await client.chat.completions.create(
         model=config.llm_model,
         messages=[
             {"role": "system", "content": BRIEF_PROMPT},
-            {"role": "user", "content": f"论文标题: {title}\n\n摘要: {abstract}"},
+            {"role": "user", "content": user_msg},
         ],
         max_tokens=100,
         temperature=0.2,
@@ -74,7 +83,7 @@ async def generate_briefs_batch(papers: list[dict]):
 
     async def _process(paper: dict):
         try:
-            summary = await generate_brief(paper["title"], paper.get("abstract", ""))
+            summary = await generate_brief(paper["title"], paper.get("abstract", ""), arxiv_id=paper.get("arxiv_id"))
             await update_brief_summary(paper["id"], summary, "completed")
             logger.info(f"Brief done: {paper['title'][:50]}...")
         except Exception as e:
@@ -89,7 +98,7 @@ async def generate_arxiv_briefs_batch(papers: list[dict]):
 
     async def _process(paper: dict):
         try:
-            summary = await generate_brief(paper["title"], paper.get("abstract", ""))
+            summary = await generate_brief(paper["title"], paper.get("abstract", ""), arxiv_id=paper.get("arxiv_id"))
             await update_arxiv_brief_summary(paper["id"], summary, "completed")
             logger.info(f"Arxiv brief done: {paper['title'][:50]}...")
         except Exception as e:

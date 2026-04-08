@@ -87,7 +87,7 @@ async def api_regenerate_brief(paper_id: int):
         raise HTTPException(404, "Paper not found")
 
     try:
-        summary = await generate_brief(paper["title"], paper.get("abstract", ""))
+        summary = await generate_brief(paper["title"], paper.get("abstract", ""), arxiv_id=paper.get("arxiv_id"))
         await update_brief_summary(paper_id, summary, "completed")
         return {"status": "ok", "summary": summary}
     except Exception as e:
@@ -260,7 +260,7 @@ async def api_arxiv_regenerate_brief(paper_id: int):
     if not paper:
         raise HTTPException(404, "Paper not found")
     try:
-        summary = await generate_brief(paper["title"], paper.get("abstract", ""))
+        summary = await generate_brief(paper["title"], paper.get("abstract", ""), arxiv_id=paper.get("arxiv_id"))
         await update_arxiv_brief_summary(paper_id, summary, "completed")
         return {"status": "ok", "summary": summary}
     except Exception as e:
