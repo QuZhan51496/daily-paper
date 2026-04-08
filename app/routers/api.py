@@ -63,6 +63,22 @@ async def api_fetch(date: str | None = None):
         raise HTTPException(500, str(e))
 
 
+@router.post("/regen_briefs")
+async def api_regen_briefs(date: str | None = None, profile_id: int | None = None):
+    """批量重新生成 HF 论文缺失的概要"""
+    if not date:
+        date = _today()
+    papers = await get_papers_by_date(date)
+    if profile_id:
+        profile = await get_keyword_profile(profile_id)
+        if profile and profile.get("keywords"):
+            papers = filter_papers_by_keywords(papers, profile["keywords"])
+    need = [p for p in papers if p.get("brief_summary_status") != "completed"]
+    if need:
+        asyncio.ensure_future(generate_briefs_batch(need))
+    return {"status": "ok", "count": len(need)}
+
+
 @router.post("/regenerate_brief/{paper_id}")
 async def api_regenerate_brief(paper_id: int):
     """重新生成首页极简概要"""
@@ -220,6 +236,22 @@ async def api_arxiv_fetch(date: str | None = None, categories: str = "cs.AI"):
     except Exception as e:
         logger.error(f"ArXiv fetch failed for {categories} {date}: {e}")
         raise HTTPException(500, str(e))
+
+
+@router.post("/arxiv/regen_briefs")
+async def api_arxiv_regen_briefs(date: str | None = None, profile_id: int | None = None):
+    """批量重新生成 ArXiv 论文缺失的概要"""
+    if not date:
+        date = _today()
+    papers = await get_arxiv_papers_by_date(date)
+    if profile_id:
+        profile = await get_keyword_profile(profile_id)
+        if profile and profile.get("keywords"):
+            papers = filter_papers_by_keywords(papers, profile["keywords"])
+    need = [p for p in papers if p.get("brief_summary_status") != "completed"]
+    if need:
+        asyncio.ensure_future(generate_arxiv_briefs_batch(need))
+    return {"status": "ok", "count": len(need)}
 
 
 @router.post("/arxiv/regenerate_brief/{paper_id}")

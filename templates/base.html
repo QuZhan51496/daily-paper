@@ -16,7 +16,10 @@
                 <a href="/arxiv" class="btn btn-sm nav-link {% if active_nav == 'arxiv' %}nav-active{% endif %}" data-nav="arxiv">ArXiv Papers</a>
             </div>
             {% block header_right %}{% endblock %}
-            <a href="/setup" class="btn btn-sm nav-right" title="设置">⚙ 设置</a>
+            <div class="nav-right">
+                <button class="btn btn-sm" id="btn-regen-all" title="重新生成当前页面缺失的概要" onclick="regenAllBriefs()">🔄 生成概要</button>
+                <a href="/setup" class="btn btn-sm" title="设置">⚙ 设置</a>
+            </div>
         </nav>
     </header>
     <main>

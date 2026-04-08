@@ -228,6 +228,44 @@ async function regenerateBrief(paperId, btn) {
     btn.disabled = false;
 }
 
+// ── Regen all briefs ─────────────────────────────────────────
+
+async function regenAllBriefs() {
+    var btn = document.getElementById("btn-regen-all");
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = "生成中...";
+
+    // 判断当前是 HF 还是 ArXiv
+    var isArxiv = window.location.pathname.startsWith("/arxiv");
+    var params = new URLSearchParams(window.location.search);
+    var date = params.get("date") || "";
+    var profileId = params.get("profile_id") || localStorage.getItem("profile_id") || "";
+
+    var url = isArxiv
+        ? `/api/arxiv/regen_briefs?date=${date}&profile_id=${profileId}`
+        : `/api/regen_briefs?date=${date}&profile_id=${profileId}`;
+
+    try {
+        var resp = await fetch(url, { method: "POST" });
+        if (resp.ok) {
+            var data = await resp.json();
+            btn.textContent = `已提交 ${data.count} 篇`;
+            setTimeout(() => {
+                btn.textContent = "🔄 生成概要";
+                btn.disabled = false;
+                window.location.reload();
+            }, 1500);
+        } else {
+            btn.textContent = "生成失败";
+            btn.disabled = false;
+        }
+    } catch (e) {
+        btn.textContent = "网络错误";
+        btn.disabled = false;
+    }
+}
+
 // ── ArXiv functions ──────────────────────────────────────────
 
 async function syncArxivPapers(date, categories) {
