@@ -71,6 +71,7 @@ async def arxiv_index(request: Request, date: str | None = None, profile_id: int
     if not CONFIG_PATH.exists():
         return templates.TemplateResponse(request, "setup.html")
 
+    date_is_explicit = date is not None
     today = date or _today()
     profiles = await get_keyword_profiles()
 
@@ -83,6 +84,13 @@ async def arxiv_index(request: Request, date: str | None = None, profile_id: int
             categories_str = current_profile.get("categories", "")
 
     all_papers = await get_arxiv_papers_by_date(today)
+
+    # 如果不是用户指定日期且无论文，fallback 到最近有论文的日期
+    if not date_is_explicit and not all_papers:
+        available = await get_arxiv_available_dates()
+        if available:
+            today = available[0]
+            all_papers = await get_arxiv_papers_by_date(today)
     total_count = len(all_papers)
 
     for prof in profiles:
@@ -110,6 +118,7 @@ async def arxiv_index(request: Request, date: str | None = None, profile_id: int
         "profiles": profiles,
         "current_profile_id": profile_id,
         "active_nav": "arxiv",
+        "date_is_explicit": date_is_explicit,
     })
     resp.headers["Cache-Control"] = "no-store"
     return resp
