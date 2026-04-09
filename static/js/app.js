@@ -29,17 +29,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 导航链接携带 profile_id 和当前日期
+    // 导航链接只携带 profile_id，不携带日期（各论文源各自 fallback）
     document.querySelectorAll("a[data-nav]").forEach(function(link) {
         link.addEventListener("click", function(e) {
             e.preventDefault();
             var pid = localStorage.getItem("profile_id");
-            var datePicker = document.getElementById("date-picker");
             var url = this.getAttribute("href");
-            var params = [];
-            if (datePicker && datePicker.value) params.push("date=" + datePicker.value);
-            if (pid) params.push("profile_id=" + pid);
-            if (params.length) url += "?" + params.join("&");
+            if (pid) url += "?profile_id=" + pid;
             window.location.href = url;
         });
     });
