@@ -19,7 +19,8 @@ async def index(request: Request, date: str | None = None, profile_id: int | Non
     if not CONFIG_PATH.exists():
         return templates.TemplateResponse(request, "setup.html")
 
-    today = date or _today()
+    requested_date = date or _today()
+    today = requested_date
     all_papers = await get_papers_by_date(today)
 
     # 当天数据库无论文时 fallback 到最近有论文的日期
@@ -32,7 +33,6 @@ async def index(request: Request, date: str | None = None, profile_id: int | Non
     profiles = await get_keyword_profiles()
     total_count = len(all_papers)
 
-    # 预计算每个 profile 的匹配数
     for prof in profiles:
         kw = prof.get("keywords", "")
         if kw:
@@ -52,6 +52,7 @@ async def index(request: Request, date: str | None = None, profile_id: int | Non
     resp = templates.TemplateResponse(request, "index.html", context={
         "papers": papers,
         "current_date": today,
+        "requested_date": requested_date,
         "prev_date": prev_date,
         "next_date": next_date,
         "paper_count": len(papers),
@@ -79,7 +80,8 @@ async def arxiv_index(request: Request, date: str | None = None, profile_id: int
     if not CONFIG_PATH.exists():
         return templates.TemplateResponse(request, "setup.html")
 
-    today = date or _today()
+    requested_date = date or _today()
+    today = requested_date
     profiles = await get_keyword_profiles()
 
     # 获取当前 profile 的 categories
@@ -117,6 +119,7 @@ async def arxiv_index(request: Request, date: str | None = None, profile_id: int
     resp = templates.TemplateResponse(request, "arxiv_index.html", context={
         "papers": papers,
         "current_date": today,
+        "requested_date": requested_date,
         "prev_date": prev_date,
         "next_date": next_date,
         "paper_count": len(papers),

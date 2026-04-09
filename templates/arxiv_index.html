@@ -75,7 +75,7 @@
 document.addEventListener("DOMContentLoaded", function() {
     {% if current_profile_id %}
     var categories = '{{ categories_str }}' || 'cs.AI';
-    syncArxivPapers('{{ current_date }}', categories);
+    syncArxivPapers('{{ requested_date }}', categories);
     pollArxivBriefs('{{ current_date }}', '{{ current_profile_id }}');
     {% endif %}
 
