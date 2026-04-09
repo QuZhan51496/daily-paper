@@ -30,10 +30,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // 导航链接携带 profile_id 和当前日期
-    // 只有用户显式选择了日期（URL 有 date 参数）才携带日期
-    var currentParams = new URLSearchParams(window.location.search);
-    var hasExplicitDate = currentParams.has("date");
-
     document.querySelectorAll("a[data-nav]").forEach(function(link) {
         link.addEventListener("click", function(e) {
             e.preventDefault();
@@ -41,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
             var datePicker = document.getElementById("date-picker");
             var url = this.getAttribute("href");
             var params = [];
-            if (hasExplicitDate && datePicker && datePicker.value) params.push("date=" + datePicker.value);
+            if (datePicker && datePicker.value) params.push("date=" + datePicker.value);
             if (pid) params.push("profile_id=" + pid);
             if (params.length) url += "?" + params.join("&");
             window.location.href = url;
