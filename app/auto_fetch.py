@@ -64,12 +64,14 @@ async def _auto_fetch_loop():
                         inserted = await insert_papers(target_date, hf_papers)
                         if inserted > 0:
                             logger.info(f"Auto-fetch: HF {target_date} inserted {inserted} papers")
-                            all_hf = await get_papers_by_date(target_date)
-                            need_brief = [p for p in all_hf if p.get("brief_summary_status") != "completed"]
-                            if need_brief:
-                                await generate_briefs_batch(need_brief)
                 except Exception as e:
                     logger.error(f"Auto-fetch HF {target_date} error: {e}")
+
+                # HF 概要生成（含失败重试）
+                all_hf = await get_papers_by_date(target_date)
+                need_brief = [p for p in all_hf if p.get("brief_summary_status") != "completed"]
+                if need_brief:
+                    await generate_briefs_batch(need_brief)
 
                 # 2. 抓取 ArXiv 论文（遍历所有 profile 的 categories）
                 fetched_cats = set()

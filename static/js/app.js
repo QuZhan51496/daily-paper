@@ -233,9 +233,9 @@ async function regenAllBriefs() {
     btn.textContent = "生成中...";
 
     var isArxiv = window.location.pathname.startsWith("/arxiv");
-    var params = new URLSearchParams(window.location.search);
-    var date = params.get("date") || "";
-    var profileId = params.get("profile_id") || localStorage.getItem("profile_id") || "";
+    var datePicker = document.getElementById("date-picker");
+    var date = datePicker ? datePicker.value : "";
+    var profileId = new URLSearchParams(window.location.search).get("profile_id") || localStorage.getItem("profile_id") || "";
 
     var url = isArxiv
         ? `/api/arxiv/regen_briefs?date=${date}&profile_id=${profileId}`
@@ -280,7 +280,7 @@ async function regenAllBriefs() {
     }
 }
 
-// ── ArXiv functions ──────────────────────────────────────────
+// ── arXiv functions ──────────────────────────────────────────
 
 async function syncArxivPapers(date, categories) {
     const msg = document.getElementById("fetch-msg");

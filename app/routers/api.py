@@ -94,12 +94,13 @@ async def api_fetch(date: str | None = None):
         count = 0
         if papers:
             count = await insert_papers(date, papers)
-            if count > 0:
-                all_papers = await get_papers_by_date(date)
-                need_brief = [p for p in all_papers if p.get("brief_summary_status") != "completed"]
-                if need_brief:
-                    asyncio.ensure_future(generate_briefs_batch(need_brief))
-                asyncio.ensure_future(_auto_analyze_details(date, "hf"))
+        # 检查所有需要生成概要的论文（新插入的 pending + 之前失败的 failed）
+        all_papers = await get_papers_by_date(date)
+        need_brief = [p for p in all_papers if p.get("brief_summary_status") != "completed"]
+        if need_brief:
+            asyncio.ensure_future(generate_briefs_batch(need_brief))
+        if count > 0 or need_brief:
+            asyncio.ensure_future(_auto_analyze_details(date, "hf"))
         return {"date": date, "fetched": len(papers), "inserted": count, "status": "ok"}
     except Exception as e:
         logger.error(f"Fetch failed for {date}: {e}")
@@ -270,11 +271,12 @@ async def api_arxiv_fetch(date: str | None = None, categories: str = "cs.AI"):
             if papers:
                 inserted = await insert_arxiv_papers(date, cat, papers)
                 total_inserted += inserted
-        if total_inserted > 0:
-            all_papers = await get_arxiv_papers_by_date(date)
-            need_brief = [p for p in all_papers if p.get("brief_summary_status") != "completed"]
-            if need_brief:
-                asyncio.ensure_future(generate_arxiv_briefs_batch(need_brief))
+        # 检查所有需要生成概要的论文（新插入 + 失败的）
+        all_papers = await get_arxiv_papers_by_date(date)
+        need_brief = [p for p in all_papers if p.get("brief_summary_status") != "completed"]
+        if need_brief:
+            asyncio.ensure_future(generate_arxiv_briefs_batch(need_brief))
+        if total_inserted > 0 or need_brief:
             asyncio.ensure_future(_auto_analyze_details(date, "arxiv"))
         return {"date": date, "categories": categories, "fetched": total_fetched, "inserted": total_inserted, "status": "ok"}
     except Exception as e:

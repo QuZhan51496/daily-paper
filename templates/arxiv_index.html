@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}ArXiv Papers - {{ current_date }}{% endblock %}
+{% block title %}arXiv Papers - {{ current_date }}{% endblock %}
 {% block header_right %}
 <div class="header-date-nav">
     <a href="/arxiv?date={{ prev_date }}{% if current_profile_id %}&profile_id={{ current_profile_id }}{% endif %}" class="btn btn-sm">&larr;</a>
@@ -22,7 +22,7 @@
 </div>
 {% elif paper_count == 0 and total_count == 0 %}
 <div class="empty-state">
-    <p id="fetch-msg" class="msg">正在自动抓取 ArXiv 论文...</p>
+    <p id="fetch-msg" class="msg">正在自动抓取 arXiv 论文...</p>
 </div>
 {% elif paper_count == 0 and total_count > 0 %}
 <div class="empty-state">

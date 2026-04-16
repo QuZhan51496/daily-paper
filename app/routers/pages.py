@@ -23,11 +23,17 @@ async def index(request: Request, date: str | None = None, profile_id: int | Non
     today = requested_date
     all_papers = await get_papers_by_date(today)
 
-    # 当天数据库无论文时 fallback 到最近有论文的日期
+    # 当天数据库无论文时 fallback 到最近的有论文日期（不超过请求日期）
     if not all_papers:
         available = await get_available_dates()
         if available:
-            today = available[0]
+            # 找请求日期之前（含）最近的有论文日期
+            before = [d for d in available if d <= requested_date]
+            if before:
+                today = before[0]  # available 降序，第一个就是最近的
+            else:
+                # 请求日期之前没有，取最近的（往后）
+                today = available[-1]
             all_papers = await get_papers_by_date(today)
 
     profiles = await get_keyword_profiles()
@@ -94,11 +100,15 @@ async def arxiv_index(request: Request, date: str | None = None, profile_id: int
 
     all_papers = await get_arxiv_papers_by_date(today)
 
-    # 当天数据库无论文时 fallback 到最近有论文的日期
+    # 当天数据库无论文时 fallback 到最近的有论文日期（不超过请求日期）
     if not all_papers:
         available = await get_arxiv_available_dates()
         if available:
-            today = available[0]
+            before = [d for d in available if d <= requested_date]
+            if before:
+                today = before[0]
+            else:
+                today = available[-1]
             all_papers = await get_arxiv_papers_by_date(today)
     total_count = len(all_papers)
 
