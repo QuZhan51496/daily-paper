@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import httpx
 from bs4 import BeautifulSoup
@@ -35,7 +36,7 @@ async def _fetch_html(arxiv_id: str) -> str | None:
             content_type = resp.headers.get("content-type", "")
             if "text/html" not in content_type:
                 return None
-            return _parse_html(resp.text)
+            return await asyncio.to_thread(_parse_html, resp.text)
     except Exception as e:
         logger.warning(f"HTML fetch failed for {arxiv_id}: {e}")
         return None
@@ -67,7 +68,7 @@ async def _fetch_pdf(arxiv_id: str) -> str | None:
             if resp.status_code != 200:
                 logger.info(f"PDF not available for {arxiv_id} (status {resp.status_code})")
                 return None
-            return _extract_pdf_text(resp.content)
+            return await asyncio.to_thread(_extract_pdf_text, resp.content)
     except Exception as e:
         logger.warning(f"PDF fetch failed for {arxiv_id}: {e}")
         return None

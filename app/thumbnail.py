@@ -1,5 +1,7 @@
+import asyncio
 import logging
 from pathlib import Path
+from urllib.parse import quote
 import httpx
 import fitz  # pymupdf
 
@@ -9,10 +11,23 @@ THUMBNAIL_DIR = Path(__file__).parent.parent / "data" / "thumbnails"
 ARXIV_PDF_URL = "https://arxiv.org/pdf/{arxiv_id}"
 
 
+def _render_thumbnail(pdf_bytes: bytes, out_path: Path) -> None:
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        page = doc[0]
+        rect = page.rect
+        clip = fitz.Rect(rect.x0, rect.y0, rect.x1, rect.y1 / 2)
+        mat = fitz.Matrix(2, 2)
+        pix = page.get_pixmap(matrix=mat, clip=clip)
+        pix.save(str(out_path))
+    finally:
+        doc.close()
+
+
 async def get_thumbnail_path(arxiv_id: str) -> Path | None:
     """获取论文首页上半部分缩略图，有缓存直接返回，无则生成。"""
     THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
-    safe_name = arxiv_id.replace("/", "_")
+    safe_name = quote(arxiv_id, safe="")
     cache_path = THUMBNAIL_DIR / f"{safe_name}.png"
 
     if cache_path.exists():
@@ -26,19 +41,7 @@ async def get_thumbnail_path(arxiv_id: str) -> Path | None:
                 logger.warning(f"PDF download failed for {arxiv_id}: {resp.status_code}")
                 return None
 
-        doc = fitz.open(stream=resp.content, filetype="pdf")
-        page = doc[0]
-
-        # 裁剪首页上半部分
-        rect = page.rect
-        clip = fitz.Rect(rect.x0, rect.y0, rect.x1, rect.y1 / 2)
-
-        # 渲染，zoom=2 提高清晰度
-        mat = fitz.Matrix(2, 2)
-        pix = page.get_pixmap(matrix=mat, clip=clip)
-
-        pix.save(str(cache_path))
-        doc.close()
+        await asyncio.to_thread(_render_thumbnail, resp.content, cache_path)
         logger.info(f"Thumbnail generated for {arxiv_id}")
         return cache_path
 

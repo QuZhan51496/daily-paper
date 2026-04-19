@@ -67,7 +67,7 @@
                 {% endif %}
             </div>
             <div class="profile-actions">
-                <button class="btn btn-sm" onclick="editProfile({{ p.id }}, '{{ p.name }}', '{{ p.keywords }}', '{{ p.categories or "" }}', {{ p.auto_analyze or 0 }})">编辑</button>
+                <button class="btn btn-sm" onclick="editProfile({{ p.id }}, {{ p.name|tojson }}, {{ p.keywords|tojson }}, {{ (p.categories or '')|tojson }}, {{ p.auto_analyze or 0 }})">编辑</button>
                 <button class="btn btn-sm" style="color:var(--danger)" onclick="deleteProfile({{ p.id }})">删除</button>
             </div>
         </div>
